@@ -64,6 +64,7 @@ Para garantizar la estabilidad del sistema, se ha integrado **Jest** como framew
 * **Documentación:** **Swagger (OpenAPI)**. Autogeneración de docs para facilitar el consumo de la API.
 * **Testing:** **Jest**.
 * **Email:** Integración SMTP para notificaciones transaccionales.
+* **Seguridad:** Integración de JWT para la autenticacion de usuarios y peticiones.
 
 ### Frontend (SPA)
 * **Framework:** **Angular**. Componentes reactivos, Servicios y Guards para seguridad.
@@ -81,6 +82,227 @@ El diseño de la base de datos resuelve retos interesantes de modelado:
 
 ---
 
+```mermaid
+classDiagram
+    %% =================================================================================
+    %% 1. MÓDULO DE IDENTIDAD Y USUARIOS (AUTH MODULE)
+    %% Responsable de: Autenticación, Roles, Perfiles Base
+    %% =================================================================================
+    namespace 01_Identity_Auth_Module {
+        %% --- ENTITIES ---
+        class User {
+            +Int id
+            +String email
+            +String passwordHash
+            +String fullName
+            +String? avatarUrl
+            +UserRole role
+            +Boolean isActive
+            +DateTime createdAt
+        }
+
+        class PatientProfile {
+            +Int id
+            +Int userId
+            +String phone
+            +String bloodType
+            +DateTime dob
+        }
+
+        %% --- DTOs (Data Transfer Objects) ---
+        class RegisterDto {
+            +String email
+            +String password
+            +String fullName
+        }
+        
+        class LoginDto {
+            +String email
+            +String password
+        }
+
+        class UpdateUserDto {
+            +String? fullName
+            +String? phone
+            +String? avatarUrl
+        }
+
+        class AuthResponseDto {
+            +String accessToken
+            +User user
+        }
+
+        %% --- LOGIC LAYERS ---
+        class AuthController {
+            +register(RegisterDto) User
+            +login(LoginDto) AuthResponseDto
+        }
+
+        class UsersController {
+            +getProfile(Request) User
+            +updateProfile(UpdateUserDto) User
+            +uploadAvatar(File) String
+        }
+
+        class AuthService {
+            +validateUser(email, pass) User
+            +login(user) AuthResponseDto
+            +hashPassword(pass) String
+        }
+
+        class UsersService {
+            +findOne(id) User
+            +update(id, data) User
+        }
+    }
+
+    %% =================================================================================
+    %% 2. MÓDULO MÉDICO (DOCTORS MODULE)
+    %% Responsable de: Gestión de Doctores, Especialidades y Configuración de Horarios
+    %% =================================================================================
+    namespace 02_Medical_Management_Module {
+        %% --- ENTITIES ---
+        class DoctorProfile {
+            +Int id
+            +Int userId
+            +String specialty
+            +String licenseNumber
+            +String bio
+            +Int consultationFee
+        }
+
+        class Availability {
+            +Int id
+            +Int doctorId
+            +Int dayOfWeek
+            +String startTime
+            +String endTime
+            +Int slotDurationMinutes
+            +Boolean isActive
+        }
+
+        %% --- DTOs ---
+        class PromoteToDoctorDto {
+            +String specialty
+            +String licenseNumber
+            +String bio
+            +Int fee
+        }
+
+        class SetAvailabilityDto {
+            +Int dayOfWeek
+            +String startTime
+            +String endTime
+            +Int duration
+        }
+
+        class FilterDoctorDto {
+            +String? specialty
+            +String? name
+        }
+
+        %% --- LOGIC LAYERS ---
+        class DoctorsController {
+            +listDoctors(FilterDoctorDto) DoctorProfile[]
+            +promoteUser(userId, PromoteToDoctorDto) DoctorProfile
+            +setAvailability(SetAvailabilityDto[]) void
+        }
+
+        class DoctorsService {
+            +findAll(filters) DoctorProfile[]
+            +createProfile(userId, data) DoctorProfile
+            +updateAvailability(doctorId, rules) void
+            +getWorkingHours(doctorId) Availability[]
+            +checkSlotFree(doctorId, start, end) Boolean
+        }
+    }
+
+    %% =================================================================================
+    %% 3. MÓDULO DE OPERACIONES (APPOINTMENTS MODULE)
+    %% Responsable de: Flujo de Citas, Reservas, Cancelaciones e Historial
+    %% =================================================================================
+    namespace 03_Operations_Appointments_Module {
+        %% --- ENTITIES ---
+        class Appointment {
+            +Int id
+            +DateTime startTime
+            +DateTime endTime
+            +AppointmentStatus status
+            +String? cancelReason
+            +Int doctorId
+            +Int patientId
+        }
+
+        class MedicalRecord {
+            +Int id
+            +Int appointmentId
+            +String diagnosis
+            +String prescription
+            +String privateNotes
+            +DateTime createdAt
+        }
+
+        %% --- DTOs ---
+        class CreateAppointmentDto {
+            +Int doctorId
+            +String startTimeISO
+            +String reason
+        }
+
+        class CancelAppointmentDto {
+            +String reason
+        }
+
+        class CompleteAppointmentDto {
+            +String diagnosis
+            +String prescription
+            +String notes
+        }
+
+        %% --- LOGIC LAYERS ---
+        class AppointmentsController {
+            +create(CreateAppointmentDto) Appointment
+            +cancel(id, CancelAppointmentDto) Appointment
+            +complete(id, CompleteAppointmentDto) MedicalRecord
+            +getMyAppointments() Appointment[]
+        }
+
+        class AppointmentsService {
+            -NotificationService notifier
+            +create(patientId, dto) Appointment
+            +cancel(id, userId, reason) Appointment
+            +complete(doctorId, apptId, data) MedicalRecord
+            -validateConflict(doctorId, start, end) Boolean
+        }
+    }
+
+    %% =================================================================================
+    %% RELACIONES E INTERACCIONES DEL SISTEMA
+    %% =================================================================================
+
+    %% 1. Relaciones de Base de Datos (Entities)
+    User "1" *-- "0..1" PatientProfile : posee
+    User "1" *-- "0..1" DoctorProfile : posee
+    DoctorProfile "1" *-- "*" Availability : define
+    
+    DoctorProfile "1" -- "*" Appointment : atiende
+    PatientProfile "1" -- "*" Appointment : solicita
+    Appointment "1" -- "0..1" MedicalRecord : genera resultado
+
+    %% 2. Flujo de Control (Controller -> Service)
+    AuthController ..> AuthService : usa
+    UsersController ..> UsersService : usa
+    DoctorsController ..> DoctorsService : usa
+    AppointmentsController ..> AppointmentsService : usa
+
+    %% 3. Dependencias entre Módulos (Cross-Module Communication)
+    AuthService ..> UsersService : busca user
+    DoctorsController ..> UsersService : promueve user
+    AppointmentsService ..> DoctorsService : valida disponibilidad
+```
+
+---
+
 ## 👨‍💻 Autor
 
 Desarrollado por **Marcos Aguirre**.
@@ -88,3 +310,4 @@ Desarrollado por **Marcos Aguirre**.
 * Portfolio: https://portfoliomarcosdaag.vercel.app/
 * LinkedIn: https://www.linkedin.com/in/marcosaguirre9/
 * Email: marcosoffs99@gmail.com
+
