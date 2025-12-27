@@ -8,7 +8,7 @@
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)
 ![Jest](https://img.shields.io/badge/Jest-C21325?style=for-the-badge&logo=jest&logoColor=white)
 
-> **[🔗 Ver Demo de la Aplicación](LINK_A_TU_DEPLOY)** | **[📄 Documentación API (Swagger)](LINK_A_TU_SWAGGER)**
+> **[🔗 Ver Demo de la Aplicación](LINK)** | **[📄 Documentación API (Swagger)](LINK)**
 
 ## 📋 Descripción del Proyecto
 
@@ -64,7 +64,7 @@ Para garantizar la estabilidad del sistema, se ha integrado **Jest** como framew
 * **Documentación:** **Swagger (OpenAPI)**. Autogeneración de docs para facilitar el consumo de la API.
 * **Testing:** **Jest**.
 * **Email:** Integración SMTP para notificaciones transaccionales.
-* **Seguridad:** Integración de JWT para la autenticacion de usuarios y peticiones.
+* **Seguridad:** Integración de JWT para la autenticación de usuarios y solicitudes.
 
 ### Frontend (SPA)
 * **Framework:** **Angular**. Componentes reactivos, Servicios y Guards para seguridad.
@@ -94,5 +94,6 @@ Desarrollado por **Marcos Aguirre**.
 * Portfolio: https://portfoliomarcosdaag.vercel.app/
 * LinkedIn: https://www.linkedin.com/in/marcosaguirre9/
 * Email: marcosoffs99@gmail.com
+
 
 
